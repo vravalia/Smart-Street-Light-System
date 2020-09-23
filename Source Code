@@ -1,0 +1,158 @@
+//Code Written by Vishaal Ravalia
+
+#define CAYENNE_PRINT Serial  
+#include <CayenneMQTTEthernet.h>
+
+// Cayenne authentication info. This should be obtained from the Cayenne Dashboard.
+char username[] = "9eb43cf0-c8b8-11e8-90bb-9f05022e95b7";
+char password[] = "14eaa6041b38291a30fed44a050381286838c692";
+char clientID[] = "fefb1a70-ddad-11e8-a056-c5cffe7f75f9";
+
+// Defines the channels of cayenne
+#define VIRTUAL_CHANNELA 1 // Luminosity
+#define VIRTUAL_CHANNELB 2 // Led on/off
+#define VIRTUAL_CHANNELC 3 // Led on/off Graph
+#define VIRTUAL_CHANNELD 4 // Human Graph
+#define VIRTUAL_CHANNELE 5 // Luminosity Graph
+#define VIRTUAL_CHANNELF 6 // Vehicle Graph
+
+// Defines the bulb pins
+#define blb1 7
+#define blb2 11
+#define blb3 12
+#define blb4 13
+
+// Defines the sensor pins
+#define sensorH 8 //Human Sensor
+#define sensorV 9 //Vehicle Sensor
+
+// Defines the variables
+int x,y;
+String bulbs = "off";
+
+
+void setup()
+{
+  Serial.begin(9600);   //sets the data rate in bits per second (baud) for serial data transmission. 
+  
+  // Inputs
+  pinMode(sensorH, INPUT);   //sensors
+  pinMode(sensorV, INPUT);
+  
+  // Outputs
+  pinMode(blb1, OUTPUT);    //street lights
+	pinMode(blb2, OUTPUT);
+	pinMode(blb3, OUTPUT);
+	pinMode(blb4, OUTPUT);
+	
+  Cayenne.begin(username, password, clientID);
+  
+}
+
+void loop()
+{
+  
+  int sr1 = digitalRead(sensorH);
+  int sr2 = digitalRead(sensorV);
+  
+  if (sr1 == LOW)  //if human is detected
+  {
+    analogWrite(blb1,225);
+    analogWrite(blb2, 225);
+    analogWrite(blb3, 225);
+    analogWrite(blb4, 225);
+    
+    bulbs = "on";
+    
+    Serial.println("Human Detected");
+    
+    Cayenne.virtualWrite(VIRTUAL_CHANNELD, analogRead(sensorH), "humanData", "null");
+    
+    delay(9000);
+   
+  }
+  else if(sr2 == LOW)  //if vehicle is detected
+  {
+    analogWrite(blb1,225);
+    analogWrite(blb2, 225);
+    analogWrite(blb3, 225);
+    analogWrite(blb4, 225);
+    
+    bulbs = "on";
+    
+    Serial.println("Vehicle Detected");
+    
+    Cayenne.virtualWrite(VIRTUAL_CHANNELF, analogRead(sensorV), "vehicleData", "null");
+    
+    delay(9000);
+
+    
+  }
+  else if(sr1 == HIGH && sr2 == HIGH && bulbs == "on")  //if there is no movement
+  {
+    analogWrite(blb1, 10);
+    analogWrite(blb2, 10);
+    analogWrite(blb3, 10);
+    analogWrite(blb4, 10);
+    
+    bulbs = "dim";
+  }
+  
+  if(sr1 == HIGH && sr2 == HIGH && bulbs == "dim")
+  {
+    Cayenne.loop();
+  }
+  
+  //delay(3000);
+  
+  
+}
+
+// This function is called when data is sent from Cayenne.
+// This controls the luminosity
+CAYENNE_IN(VIRTUAL_CHANNELA)
+{
+	int value = getValue.asInt(); // 0 to 255
+	CAYENNE_LOG("Channel %d, pin %d, value %d", VIRTUAL_CHANNELA, blb1, blb2, blb3, blb4, value);
+	// Write the value received to the PWM pin. analogWrite accepts a value from 0 to 255.
+	analogWrite(blb1, value);
+	analogWrite(blb2, value);
+	analogWrite(blb3, value);
+	analogWrite(blb4, value);
+	
+	Serial.println(value);
+	y = value;
+	Cayenne.virtualWrite(VIRTUAL_CHANNELE, y, "luminosity", "null");
+	
+}
+
+// This controls the on/off
+CAYENNE_IN(VIRTUAL_CHANNELB)
+{
+	int value = getValue.asInt();
+	CAYENNE_LOG("Channel %d, pin %d, value %d", VIRTUAL_CHANNELB, blb1, blb2, blb3, blb4, value);
+	// Write the value received to the digital pin.
+	digitalWrite(blb1, value);
+	digitalWrite(blb2, value);
+	digitalWrite(blb3, value);
+	digitalWrite(blb4, value);
+	
+	Serial.println(value);
+	x = value;
+	Cayenne.virtualWrite(VIRTUAL_CHANNELC, x, "on/off", "null");
+	
+}
+
+/*//Graph for led on/off
+CAYENNE_OUT(VIRTUAL_CHANNELC)
+{
+  Cayenne.virtualWrite(VIRTUAL_CHANNELC, x, "on/off", "null");
+
+}
+
+//graph for led luminosity
+CAYENNE_OUT(VIRTUAL_CHANNELE)
+{
+  Cayenne.virtualWrite(VIRTUAL_CHANNELE, y, "luminosity", "null");
+
+}*/
